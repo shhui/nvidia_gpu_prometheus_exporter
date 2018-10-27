@@ -111,6 +111,14 @@ nvmlReturn_t nvmlDeviceGetPowerUsage(nvmlDevice_t device, unsigned int *power) {
   return nvmlDeviceGetPowerUsageFunc(device, power);
 }
 
+nvmlReturn_t (*nvmlDeviceGetPowerManagementLimitFunc)(nvmlDevice_t device, unsigned int *power);
+nvmlReturn_t nvmlDeviceGetPowerManagementLimit(nvmlDevice_t device, unsigned int *power) {
+  if (nvmlDeviceGetPowerManagementLimitFunc == NULL) {
+    return NVML_ERROR_FUNCTION_NOT_FOUND;
+  }
+  return nvmlDeviceGetPowerManagementLimitFunc(device, power);
+}
+
 nvmlReturn_t (*nvmlDeviceGetTemperatureFunc)(nvmlDevice_t device, nvmlTemperatureSensors_t sensorType, unsigned int *temp);
 nvmlReturn_t nvmlDeviceGetTemperature(nvmlDevice_t device, nvmlTemperatureSensors_t sensorType, unsigned int *temp) {
   if (nvmlDeviceGetTemperatureFunc == NULL) {
@@ -199,6 +207,10 @@ nvmlReturn_t nvmlInit_dl(void) {
   }
   nvmlDeviceGetPowerUsageFunc = dlsym(nvmlHandle, "nvmlDeviceGetPowerUsage");
   if (nvmlDeviceGetPowerUsageFunc == NULL) {
+    return NVML_ERROR_FUNCTION_NOT_FOUND;
+  }
+  nvmlDeviceGetPowerManagementLimitFunc = dlsym(nvmlHandle, "nvmlDeviceGetPowerManagementLimit");
+  if (nvmlDeviceGetPowerManagementLimit == NULL) {
     return NVML_ERROR_FUNCTION_NOT_FOUND;
   }
   nvmlDeviceGetTemperatureFunc = dlsym(nvmlHandle, "nvmlDeviceGetTemperature");
@@ -451,6 +463,15 @@ func (d Device) PowerUsage() (uint, error) {
 	var n C.uint
 	r := C.nvmlDeviceGetPowerUsage(d.dev, &n)
 	return uint(n), errorString(r)
+}
+
+func (d Device) PowerCapacity() (uint, error) {
+        if C.nvmlHandle == nil {
+                return 0, errLibraryNotLoaded
+        }
+        var n C.uint
+        r := C.nvmlDeviceGetPowerManagementLimit(d.dev, &n)
+        return uint(n), errorString(r)
 }
 
 // AveragePowerUsage returns the power usage for this GPU and its associated circuitry

@@ -17,7 +17,7 @@ const (
 )
 
 var (
-	addr = flag.String("web.listen-address", ":9445", "Address to listen on for web interface and telemetry.")
+	addr = flag.String("web.listen-address", ":9446", "Address to listen on for web interface and telemetry.")
 
 	labels = []string{"minor_number", "uuid", "name"}
 )
@@ -31,6 +31,9 @@ type Collector struct {
 	powerUsage  *prometheus.GaugeVec
 	temperature *prometheus.GaugeVec
 	fanSpeed    *prometheus.GaugeVec
+	gpuPercent  *prometheus.GaugeVec
+	memoryPercent  *prometheus.GaugeVec
+	powerCapacity  *prometheus.GaugeVec
 }
 
 func NewCollector() *Collector {
@@ -90,6 +93,30 @@ func NewCollector() *Collector {
 			},
 			labels,
 		),
+		gpuPercent: prometheus.NewGaugeVec(
+			prometheus.GaugeOpts{
+				Namespace: namespace,
+				Name:      "gpu_percent",
+				Help:      "Percent of GPU Utilized",
+			},
+			labels,
+		),
+		memoryPercent: prometheus.NewGaugeVec(
+			prometheus.GaugeOpts{
+				Namespace: namespace,
+				Name:      "memory_percent",
+				Help:      "Percent of Memory Utilized",
+			},
+			labels,
+		),
+		powerCapacity: prometheus.NewGaugeVec(
+			prometheus.GaugeOpts{
+				Namespace: namespace,
+				Name:      "power_capacity_milliwatts",
+				Help:      "Power capacity of the GPU device in milliwatts",
+			},
+			labels,
+		),
 	}
 }
 
@@ -101,6 +128,9 @@ func (c *Collector) Describe(ch chan<- *prometheus.Desc) {
 	c.powerUsage.Describe(ch)
 	c.temperature.Describe(ch)
 	c.fanSpeed.Describe(ch)
+	c.gpuPercent.Describe(ch)
+	c.memoryPercent.Describe(ch)
+	c.powerCapacity.Describe(ch)
 }
 
 func (c *Collector) Collect(ch chan<- prometheus.Metric) {
@@ -114,6 +144,9 @@ func (c *Collector) Collect(ch chan<- prometheus.Metric) {
 	c.powerUsage.Reset()
 	c.temperature.Reset()
 	c.fanSpeed.Reset()
+	c.gpuPercent.Reset()
+	c.memoryPercent.Reset()
+	c.powerCapacity.Reset()
 
 	numDevices, err := gonvml.DeviceCount()
 	if err != nil {
@@ -185,6 +218,19 @@ func (c *Collector) Collect(ch chan<- prometheus.Metric) {
 		} else {
 			c.fanSpeed.WithLabelValues(minor, uuid, name).Set(float64(fanSpeed))
 		}
+		gpuPercent, memoryPercent, err := dev.UtilizationRates()
+		if err != nil {
+			log.Printf("gpuPercent() error: %v", err)
+		} else {
+			c.gpuPercent.WithLabelValues(minor, uuid, name).Set(float64(gpuPercent))
+			c.memoryPercent.WithLabelValues(minor, uuid, name).Set(float64(memoryPercent))
+		}
+		powerCapacity, err := dev.PowerCapacity()
+		if err != nil {
+			log.Printf("PowerCapacity() error: %v", err)
+		} else {
+			c.powerCapacity.WithLabelValues(minor, uuid, name).Set(float64(powerCapacity))
+		}
 	}
 	c.usedMemory.Collect(ch)
 	c.totalMemory.Collect(ch)
@@ -192,6 +238,9 @@ func (c *Collector) Collect(ch chan<- prometheus.Metric) {
 	c.powerUsage.Collect(ch)
 	c.temperature.Collect(ch)
 	c.fanSpeed.Collect(ch)
+	c.gpuPercent.Collect(ch)
+	c.memoryPercent.Collect(ch)
+	c.powerCapacity.Collect(ch)
 }
 
 func main() {
