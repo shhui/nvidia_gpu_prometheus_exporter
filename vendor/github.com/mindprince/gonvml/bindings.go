@@ -453,6 +453,15 @@ func (d Device) PowerUsage() (uint, error) {
 	return uint(n), errorString(r)
 }
 
+func (d Device) PowerCapacity() (uint, error) {
+        if C.nvmlHandle == nil {
+                return 0, errLibraryNotLoaded
+        }
+        var n C.uint
+        r := C.nvmlDeviceGetPowerManagementLimit(d.dev, &n)
+        return uint(n), errorString(r)
+}
+
 // AveragePowerUsage returns the power usage for this GPU and its associated circuitry
 // in milliwatts averaged over the samples collected in the last `since` duration.
 func (d Device) AveragePowerUsage(since time.Duration) (uint, error) {
